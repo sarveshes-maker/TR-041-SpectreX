@@ -6,6 +6,8 @@ import ResultsDisplay from './components/ResultsDisplay';
 import StartPage from './components/StartPage';
 import { evaluateSoil } from './utils/soilAnalyzer';
 import { findNearestLab } from './utils/labLocator';
+import { fetchWeather } from './utils/weatherApi';
+import LabMap from './components/LabMap';
 
 function App() {
   const [hasStarted, setHasStarted] = useState(false);
@@ -13,8 +15,42 @@ function App() {
   const [showLabModal, setShowLabModal] = useState(false);
   const [foundLab, setFoundLab] = useState(null);
   const [isLocatingLab, setIsLocatingLab] = useState(false);
+  const [weatherData, setWeatherData] = useState(null);
+  const [userAddress, setUserAddress] = useState("");
+  const [userCoords, setUserCoords] = useState(null);
+
+  const fetchLocationDetails = async (lat, lon) => {
+    try {
+      // Fetch Weather
+      const weather = await fetchWeather(lat, lon);
+      setWeatherData(weather);
+
+      // Fetch Address (Reverse Geocoding)
+      const geoResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+      const geoData = await geoResponse.json();
+      setUserAddress(geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.district || "Your Location");
+    } catch (err) {
+      console.error("Location Details Error:", err);
+    }
+  };
 
   useEffect(() => {
+    // Auto-locate on mount to prep coordinates for the maps
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setUserCoords({ lat: latitude, lng: longitude });
+          fetchLocationDetails(latitude, longitude);
+          
+          const nearest = findNearestLab(latitude, longitude);
+          setFoundLab(nearest);
+        },
+        (error) => console.warn("Initial auto-locate declined or failed:", error),
+        { enableHighAccuracy: true }
+      );
+    }
+
     const handleLocateLabs = () => {
       if (!navigator.geolocation) {
         alert("Geolocation is not supported by your browser");
@@ -25,6 +61,10 @@ function App() {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
+          setUserCoords({ lat: latitude, lng: longitude });
+          
+          fetchLocationDetails(latitude, longitude);
+
           const nearest = findNearestLab(latitude, longitude);
           setFoundLab(nearest);
           setShowLabModal(true);
@@ -34,7 +74,8 @@ function App() {
           console.error("Error getting location:", error);
           alert("Failed to get your location. Please ensure location access is allowed.");
           setIsLocatingLab(false);
-        }
+        },
+        { enableHighAccuracy: true }
       );
     };
 
@@ -116,6 +157,48 @@ function App() {
         {/* Controls: Theme & Language */}
         <div style={{ position: 'absolute', top: '20px', right: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
           
+          {/* Weather & Location Info */}
+          {(weatherData || userAddress) && (
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '15px',
+                background: 'var(--glass-bg)',
+                border: '1px solid var(--glass-border)',
+                borderRadius: '100px',
+                padding: '4px 20px',
+                marginRight: '10px'
+              }}
+            >
+              {userAddress && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', borderRight: weatherData ? '1px solid var(--glass-border)' : 'none', paddingRight: weatherData ? '12px' : '0' }}>
+                  <MapPin size={16} color="var(--accent-primary)" />
+                  <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: '600' }}>{userAddress}</span>
+                </div>
+              )}
+              
+              {weatherData && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Activity size={16} color="var(--accent-blue)" />
+                    <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>{weatherData.temp}°C</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Droplets size={16} color="var(--accent-primary)" />
+                    <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>{weatherData.humidity}%</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.8 }}>
+                    <Sun size={16} color="#fbbf24" />
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{weatherData.condition}</span>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+
           {/* Custom Language Selection */}
           <div style={{ 
             display: 'flex', 
@@ -219,7 +302,12 @@ function App() {
               exit={{ opacity: 0, x: -20, filter: 'blur(10px)' }}
               transition={{ duration: 0.4 }}
             >
-              <SoilInputForm onSubmit={handleAnalyze} isAnalyzing={isAnalyzing} />
+              <SoilInputForm 
+                onSubmit={handleAnalyze} 
+                isAnalyzing={isAnalyzing} 
+                detectedLocation={userAddress}
+                userCoords={userCoords}
+              />
             </motion.div>
           ) : (
             <motion.div
@@ -268,6 +356,14 @@ function App() {
                       <Activity size={18} /> Approximately {foundLab.distance} km away
                     </div>
                   </div>
+
+                  {/* High Accuracy Minimap */}
+                  <LabMap 
+                    userCoords={userCoords} 
+                    labCoords={{ lat: foundLab.lat, lng: foundLab.lng }} 
+                    labName={`${foundLab.place} Lab`}
+                  />
+
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
                     Source: TNAU Agritech Portal
                   </p>

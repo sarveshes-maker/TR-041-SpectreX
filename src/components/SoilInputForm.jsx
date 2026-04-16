@@ -1,19 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Beaker, Droplets, MapPin, Search, Activity, Navigation, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import LabMap from './LabMap';
 
-const SoilInputForm = ({ onSubmit, isAnalyzing }) => {
+const SoilInputForm = ({ onSubmit, isAnalyzing, detectedLocation, userCoords }) => {
   const [formData, setFormData] = useState({
     pH: '',
     nitrogen: '',
     phosphorus: '',
     potassium: '',
     moisture: '',
-    district: '',
+    district: detectedLocation || '',
     season: 'kharif',
     preferredCrop: ''
   });
   const [isLocating, setIsLocating] = useState(false);
+
+  // Sync with detected location from parent
+  useEffect(() => {
+    if (detectedLocation) {
+      setFormData(prev => ({ ...prev, district: detectedLocation }));
+    }
+  }, [detectedLocation]);
 
   const handleDetectLocation = () => {
     if (!navigator.geolocation) {
@@ -113,83 +121,85 @@ const SoilInputForm = ({ onSubmit, isAnalyzing }) => {
         </div>
 
         {/* Contextual Data */}
-        <div>
-          <h3 style={{ color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', fontSize: '1.2rem' }}>
-            <MapPin size={20} color="var(--accent-blue)" /> Environmental & Crop Context
-          </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">District / Location</label>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input required type="text" name="district" value={formData.district} onChange={handleChange} className="form-control" placeholder="e.g. Tamil Nadu, Erode" style={{ flex: 1 }} />
-                <button 
-                  type="button" 
-                  onClick={handleDetectLocation} 
-                  disabled={isLocating}
-                  style={{ 
-                    padding: '0 16px', 
-                    background: 'rgba(56, 189, 248, 0.1)', 
-                    border: '1px solid var(--accent-blue)', 
-                    color: 'var(--accent-blue)', 
-                    borderRadius: '8px',
-                    cursor: isLocating ? 'not-allowed' : 'pointer',
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '32px' }}>
+          <div>
+            <h3 style={{ color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', fontSize: '1.2rem' }}>
+              <Navigation size={20} color="var(--accent-blue)" /> Environmental & Crop Context
+            </h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  Live GPS Location
+                  {isLocating && <span style={{ color: 'var(--accent-blue)', fontSize: '0.8rem' }}>Detecting...</span>}
+                </label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ 
+                    flex: 1, 
+                    background: 'var(--glass-highlight)', 
+                    border: '1px solid var(--glass-border)', 
+                    borderRadius: '8px', 
+                    padding: '10px 16px',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 0.3s ease'
-                  }}
-                  title="Auto-detect location"
-                >
-                  {isLocating ? (
-                    <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
-                       <Loader2 size={20} />
-                    </motion.div>
-                  ) : (
-                    <Navigation size={20} />
-                  )}
-                </button>
+                    gap: '10px',
+                    color: formData.district ? 'var(--text-primary)' : 'var(--text-secondary)'
+                  }}>
+                    <MapPin size={18} color="var(--accent-primary)" />
+                    {formData.district || "Select 'Auto-Detect' or wait..."}
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={handleDetectLocation} 
+                    disabled={isLocating}
+                    style={{ 
+                      padding: '0 16px', 
+                      background: 'rgba(56, 189, 248, 0.1)', 
+                      border: '1px solid var(--accent-blue)', 
+                      color: 'var(--accent-blue)', 
+                      borderRadius: '8px',
+                      cursor: isLocating ? 'not-allowed' : 'pointer'
+                    }}
+                    title="Refresh GPS"
+                  >
+                    {isLocating ? <Loader2 size={20} className="animate-spin" /> : <Navigation size={20} />}
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Season</label>
+                  <select name="season" value={formData.season} onChange={handleChange} className="form-control" style={{ appearance: 'none' }}>
+                    <option value="kharif">Kharif</option>
+                    <option value="rabi">Rabi</option>
+                    <option value="zaid">Zaid</option>
+                  </select>
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Ideal Crop Focus</label>
+                  <select name="preferredCrop" value={formData.preferredCrop} onChange={handleChange} className="form-control" style={{ appearance: 'none' }}>
+                    <option value="">Decided by AI</option>
+                    <option value="Rice">Rice</option>
+                    <option value="Wheat">Wheat</option>
+                    <option value="Maize">Maize</option>
+                    <option value="Cotton">Cotton</option>
+                  </select>
+                </div>
               </div>
             </div>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Cultivation Season</label>
-              <select name="season" value={formData.season} onChange={handleChange} className="form-control" style={{ appearance: 'none', cursor: 'pointer' }}>
-                <option value="kharif">Kharif (Monsoon)</option>
-                <option value="rabi">Rabi (Winter)</option>
-                <option value="zaid">Zaid (Summer)</option>
-              </select>
-            </div>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Preferred Crop Focus</label>
-              <select name="preferredCrop" value={formData.preferredCrop} onChange={handleChange} className="form-control" style={{ appearance: 'none', cursor: 'pointer' }}>
-                <option value="">Let AI Decide (Auto)</option>
-                <optgroup label="Cereals & Millets">
-                  <option value="Rice">Rice</option>
-                  <option value="Wheat">Wheat</option>
-                  <option value="Finger Millet (Ragi)">Finger Millet (Ragi)</option>
-                  <option value="Pearl Millet (Bajra)">Pearl Millet (Bajra)</option>
-                  <option value="Sorghum (Jowar)">Sorghum (Jowar)</option>
-                  <option value="Maize">Maize</option>
-                </optgroup>
-                <optgroup label="Cash Crops & Oilseeds">
-                  <option value="Cotton">Cotton</option>
-                  <option value="Sugarcane">Sugarcane</option>
-                  <option value="Groundnut">Groundnut</option>
-                  <option value="Soybean">Soybean</option>
-                  <option value="Mustard">Mustard</option>
-                </optgroup>
-                <optgroup label="Vegetables">
-                  <option value="Tomato">Tomato</option>
-                  <option value="Potato">Potato</option>
-                  <option value="Onion">Onion</option>
-                  <option value="Chili">Chili</option>
-                </optgroup>
-                <optgroup label="Fruits">
-                  <option value="Mango">Mango</option>
-                  <option value="Banana">Banana</option>
-                  <option value="Papaya">Papaya</option>
-                  <option value="Guava">Guava</option>
-                </optgroup>
-              </select>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <h3 style={{ color: 'var(--text-primary)', marginBottom: '16px', fontSize: '1rem', opacity: 0.8 }}>Live Agri-Map Tracking</h3>
+            <div style={{ flex: 1, minHeight: '180px', borderRadius: '16px', border: '1px solid var(--glass-border)', overflow: 'hidden' }}>
+              {userCoords ? (
+                <LabMap userCoords={userCoords} labCoords={userCoords} labName="FARM LOCATION" />
+              ) : (
+                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--glass-highlight)', color: 'var(--text-secondary)', fontSize: '0.9rem', textAlign: 'center', padding: '20px' }}>
+                  Enable GPS to see your farm position on the map
+                </div>
+              )}
             </div>
           </div>
         </div>
