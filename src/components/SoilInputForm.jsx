@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Beaker, Droplets, MapPin, Search, Activity, Navigation, Loader2 } from 'lucide-react';
+import { Beaker, Droplets, MapPin, Search, Activity, Navigation, Loader2, ArrowLeft } from 'lucide-react';
 import { motion } from 'framer-motion';
 import LabMap from './LabMap';
 
-const SoilInputForm = ({ onSubmit, isAnalyzing, detectedLocation, userCoords }) => {
+const SoilInputForm = ({ onSubmit, isAnalyzing, detectedLocation, userCoords, initialData, onBack }) => {
   const [formData, setFormData] = useState({
-    pH: '',
-    nitrogen: '',
-    phosphorus: '',
-    potassium: '',
-    moisture: '',
+    pH: initialData?.pH || '',
+    nitrogen: initialData?.nitrogen || '',
+    phosphorus: initialData?.phosphorus || '',
+    potassium: initialData?.potassium || '',
+    moisture: initialData?.moisture || '',
     district: detectedLocation || '',
     season: 'kharif',
     preferredCrop: ''
@@ -22,6 +22,20 @@ const SoilInputForm = ({ onSubmit, isAnalyzing, detectedLocation, userCoords }) 
       setFormData(prev => ({ ...prev, district: detectedLocation }));
     }
   }, [detectedLocation]);
+
+  // Sync with file-uploaded data
+  useEffect(() => {
+    if (initialData) {
+      setFormData(prev => ({
+        ...prev,
+        pH: initialData.pH !== undefined && initialData.pH !== '' ? initialData.pH : prev.pH,
+        nitrogen: initialData.nitrogen !== undefined && initialData.nitrogen !== '' ? initialData.nitrogen : prev.nitrogen,
+        phosphorus: initialData.phosphorus !== undefined && initialData.phosphorus !== '' ? initialData.phosphorus : prev.phosphorus,
+        potassium: initialData.potassium !== undefined && initialData.potassium !== '' ? initialData.potassium : prev.potassium,
+        moisture: initialData.moisture !== undefined && initialData.moisture !== '' ? initialData.moisture : prev.moisture
+      }));
+    }
+  }, [initialData]);
 
   const handleDetectLocation = () => {
     if (!navigator.geolocation) {
@@ -75,6 +89,10 @@ const SoilInputForm = ({ onSubmit, isAnalyzing, detectedLocation, userCoords }) 
 
   return (
     <div className="glass-panel" style={{ padding: '40px' }}>
+      <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', marginBottom: '20px', fontSize: '0.9rem' }}>
+        <ArrowLeft size={16} /> Change Entry Method
+      </button>
+
       <div style={{ marginBottom: '30px', borderBottom: '1px solid var(--glass-border)', paddingBottom: '20px' }}>
         <h2 style={{ color: 'var(--text-primary)', marginBottom: '10px' }}>Soil Health Data Entry</h2>
         <p style={{ color: 'var(--text-secondary)' }}>Provide recent soil test readings and context for accurate ML-driven recommendations.</p>
@@ -102,7 +120,7 @@ const SoilInputForm = ({ onSubmit, isAnalyzing, detectedLocation, userCoords }) 
         {/* NPK Grid */}
         <div style={{ background: 'var(--glass-highlight)', padding: '24px', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
           <h3 style={{ color: 'var(--text-primary)', marginBottom: '16px', fontSize: '1.1rem' }}>
-            Macronutrients (kg/ha)
+            Macronutrients (ppm)
           </h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
             <div className="form-group" style={{ marginBottom: 0 }}>

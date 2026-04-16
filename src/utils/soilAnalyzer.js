@@ -41,7 +41,7 @@ const getNutrientPenalty = (needed, actual) => {
     return 0;
 };
 
-export const evaluateSoil = (formData) => {
+export const evaluateSoil = (formData, weatherData = null) => {
   const pH = parseFloat(formData.pH);
   const N = parseInt(formData.nitrogen);
   const P = parseInt(formData.phosphorus);
@@ -151,6 +151,23 @@ export const evaluateSoil = (formData) => {
 
   const cropData = CROP_DATABASE.find(c => c.crop === primaryResult.crop) || CROP_DATABASE[0];
 
+  // Logic for smart watering pattern
+  let waterAdvice = "";
+  const temp = weatherData?.temp || 25;
+  const hum = weatherData?.humidity || 60;
+  
+  if (moisture < cropData.minMoisture) {
+      if (temp > 32) {
+          waterAdvice = `CRITICAL: High Temp (${temp}°C) & Low Moisture. Provide deep irrigation immediately, preferably during evening to minimize evaporation.`;
+      } else {
+          waterAdvice = `Moderate irrigation required. Target soil moisture of ${cropData.minMoisture}%- ${cropData.maxMoisture}% for optimal root growth.`;
+      }
+  } else if (temp > 35 && hum < 40) {
+      waterAdvice = `Weather Alert: High transpiration risk. Maintain frequent light watering to keep surface soil cool.`;
+  } else {
+      waterAdvice = `Balanced hydrometrics. Continue regular moisture monitoring. Ambient temp is ${temp}°C.`;
+  }
+
   return {
     input: formData,
     recommendations: finalRecommendations, 
@@ -158,7 +175,7 @@ export const evaluateSoil = (formData) => {
     correction: finalCorrections,
     yieldStrategies: [
         { icon: 'irrigation', title: "Targeted Irrigation", detail: `Optimal moisture for ${primaryResult.crop} is firmly between ${cropData.minMoisture}% to ${cropData.maxMoisture}%. Prevent extreme swings.` },
-        { icon: 'fertilizer', title: "Efficiency Dynamics", detail: `Precision farming required: Follow strict schedules. Only apply ${cropData.nNeeded} Nitrogen when necessary to prevent leaching.` },
+        { icon: 'droplets', title: "Watering Pattern", detail: waterAdvice },
         { icon: 'practice', title: "Growth Guarantee", detail: `Predicted Yield Capability reflects a ${primaryResult.score}% health index. ${primaryResult.score < 60 ? 'Intense care required.' : 'Solid routine maintenance is sufficient.'}` }
     ],
     advisory: {

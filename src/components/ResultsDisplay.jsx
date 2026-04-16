@@ -108,7 +108,7 @@ const ResultsDisplay = ({ data, onBack }) => {
           {data.yieldStrategies.map((strategy, i) => (
             <div key={i} style={{ background: 'var(--glass-bg)', padding: '20px', borderRadius: '12px', border: '1px solid var(--glass-border)', transition: 'all 0.3s' }}>
               <strong style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)', marginBottom: '10px', fontSize: '1.1rem' }}>
-                {strategy.icon === 'irrigation' ? <Droplets size={20} color="var(--accent-blue)" /> : 
+                {strategy.icon === 'irrigation' || strategy.icon === 'droplets' ? <Droplets size={20} color="var(--accent-blue)" /> : 
                  strategy.icon === 'fertilizer' ? <Leaf size={20} color="var(--accent-primary)" /> : 
                  <Sprout size={20} color="var(--accent-secondary)" />}
                 {strategy.title}

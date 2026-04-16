@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import SoilInputForm from './components/SoilInputForm';
 import ResultsDisplay from './components/ResultsDisplay';
 import StartPage from './components/StartPage';
+import EntrySelection from './components/EntrySelection';
 import { evaluateSoil } from './utils/soilAnalyzer';
 import { findNearestLab } from './utils/labLocator';
 import { fetchWeather } from './utils/weatherApi';
@@ -11,6 +12,8 @@ import LabMap from './components/LabMap';
 
 function App() {
   const [hasStarted, setHasStarted] = useState(false);
+  const [entryMethod, setEntryMethod] = useState(null); // 'manual' | 'file'
+  const [autoPopulatedData, setAutoPopulatedData] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [showLabModal, setShowLabModal] = useState(false);
   const [foundLab, setFoundLab] = useState(null);
@@ -122,7 +125,7 @@ function App() {
     setIsAnalyzing(true);
     // Simulate ML algorithmic delay
     setTimeout(() => {
-      const algorithmicData = evaluateSoil(formData);
+      const algorithmicData = evaluateSoil(formData, weatherData);
       setAnalysisData(algorithmicData);
       setIsAnalyzing(false);
     }, 1500);
@@ -130,6 +133,8 @@ function App() {
 
   const resetAnalysis = () => {
     setAnalysisData(null);
+    setEntryMethod(null);
+    setAutoPopulatedData(null);
   };
 
   return (
@@ -157,42 +162,65 @@ function App() {
         {/* Controls: Theme & Language */}
         <div style={{ position: 'absolute', top: '20px', right: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
           
-          {/* Weather & Location Info */}
+          {/* Location & Weather Vertical Sidebar */}
           {(weatherData || userAddress) && (
             <motion.div 
-              initial={{ opacity: 0, x: 20 }}
+              initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
               style={{ 
+                position: 'fixed',
+                left: '20px',
+                top: '40px',
                 display: 'flex', 
+                flexDirection: 'column',
                 alignItems: 'center', 
-                gap: '15px',
+                gap: '20px',
                 background: 'var(--glass-bg)',
                 border: '1px solid var(--glass-border)',
-                borderRadius: '100px',
-                padding: '4px 20px',
-                marginRight: '10px'
+                borderRadius: '24px',
+                padding: '30px 14px',
+                zIndex: 1000,
+                boxShadow: '0 0 30px var(--accent-glow)'
               }}
             >
               {userAddress && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', borderRight: weatherData ? '1px solid var(--glass-border)' : 'none', paddingRight: weatherData ? '12px' : '0' }}>
-                  <MapPin size={16} color="var(--accent-primary)" />
-                  <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: '600' }}>{userAddress}</span>
+                <div style={{ 
+                  writingMode: 'vertical-rl', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '12px', 
+                  borderBottom: weatherData ? '1px solid var(--glass-border)' : 'none', 
+                  paddingBottom: '20px', 
+                  transform: 'rotate(180deg)' // Fix reading direction
+                }}>
+                  <MapPin size={24} color="var(--accent-primary)" />
+                  <span style={{ fontSize: '1.2rem', color: 'var(--text-primary)', fontWeight: '700', letterSpacing: '1px' }}>{userAddress}</span>
                 </div>
               )}
               
               {weatherData && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Activity size={16} color="var(--accent-blue)" />
-                    <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>{weatherData.temp}°C</span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '30px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ background: 'rgba(56, 189, 248, 0.1)', padding: '12px', borderRadius: '12px' }}>
+                      <Activity size={28} color="var(--accent-blue)" />
+                    </div>
+                    <span style={{ fontSize: '1.4rem', color: 'var(--text-primary)', fontWeight: '700' }}>{weatherData.temp}°C</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>Temp</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Droplets size={16} color="var(--accent-primary)" />
-                    <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>{weatherData.humidity}%</span>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ background: 'rgba(34, 197, 94, 0.1)', padding: '12px', borderRadius: '12px' }}>
+                      <Droplets size={28} color="var(--accent-primary)" />
+                    </div>
+                    <span style={{ fontSize: '1.4rem', color: 'var(--text-primary)', fontWeight: '700' }}>{weatherData.humidity}%</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>Humidity</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.8 }}>
-                    <Sun size={16} color="#fbbf24" />
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{weatherData.condition}</span>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ background: 'rgba(251, 191, 36, 0.1)', padding: '12px', borderRadius: '12px' }}>
+                      <Sun size={28} color="#fbbf24" />
+                    </div>
+                    <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', textAlign: 'center', fontWeight: '500' }}>{weatherData.condition}</span>
                   </div>
                 </div>
               )}
@@ -294,6 +322,23 @@ function App() {
             >
               <StartPage onStart={() => setHasStarted(true)} />
             </motion.div>
+          ) : !entryMethod ? (
+            <motion.div
+              key="selection-page"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, x: -20, filter: 'blur(10px)' }}
+              transition={{ duration: 0.4 }}
+            >
+              <EntrySelection 
+                onSelectManual={() => setEntryMethod('manual')}
+                onFileLoaded={(data) => {
+                  setAutoPopulatedData(data);
+                  setEntryMethod('file');
+                }}
+                onBack={() => setHasStarted(false)}
+              />
+            </motion.div>
           ) : !analysisData ? (
             <motion.div
               key="input-form"
@@ -307,6 +352,11 @@ function App() {
                 isAnalyzing={isAnalyzing} 
                 detectedLocation={userAddress}
                 userCoords={userCoords}
+                initialData={autoPopulatedData}
+                onBack={() => {
+                  setEntryMethod(null);
+                  setAutoPopulatedData(null);
+                }}
               />
             </motion.div>
           ) : (

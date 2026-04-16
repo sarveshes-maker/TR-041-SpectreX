@@ -1,0 +1,9 @@
+Soil Health Report #1234
+-------------------------
+Location: Tamil Nadu
+ph level = 7.2
+Nitrogen Concentration: 60 ppm
+Avaliable P: 33
+Potassium (k): 52
+Soil Moisture: 18%
+Status: Valid

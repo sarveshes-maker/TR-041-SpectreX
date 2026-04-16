@@ -1,0 +1,11 @@
+Batch ID: AX-990
+Date: 2026-04-16
+------------------
+Sample Type: Topsoil
+Lab Results Summary:
+1. Soil Acidity (pH): 6.85
+2. Total Nitrogen (N): 44.0 mg/kg
+3. Phosphorus (Available P): 22
+4. Potash / Potassium (K2O): 112
+Current Water Content (Moisture): 14.5%
+Recommendation: Healthy
