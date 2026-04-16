@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FARM AI - AI Soil Advisory</title>
+    <style>
+      /* Hide the Google Translate branding, banner and original text */
+      .goog-te-banner-frame.skiptranslate, 
+      .goog-te-gadget-icon,
+      iframe[id=":1.container"],
+      #goog-gt-tt,
+      .goog-te-balloon-frame,
+      .goog-te-gadget-simple img,
+      .goog-te-menu-value span:first-child {
+        display: none !important;
+      }
+      
+      body {
+        top: 0px !important;
+      }
+
+      #google_translate_element {
+        display: inline-block;
+      }
+
+      .goog-te-gadget-simple {
+        background-color: var(--glass-bg) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border: 1px solid var(--glass-border) !important;
+        padding: 8px 16px !important;
+        border-radius: 100px !important;
+        font-family: 'Outfit', sans-serif !important;
+        display: flex !important;
+        align-items: center !important;
+        cursor: pointer !important;
+        transition: all 0.3s ease !important;
+        text-decoration: none !important;
+      }
+
+      .goog-te-gadget-simple:hover {
+        background-color: var(--glass-highlight) !important;
+        border-color: var(--accent-primary) !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      }
+
+      .goog-te-menu-value {
+        margin: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        color: var(--text-primary) !important;
+        font-weight: 600 !important;
+        font-size: 0.85rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
+      }
+
+      /* Insert the "Translate" text */
+      .goog-te-menu-value:before {
+        content: 'Translate' !important;
+        margin-right: 8px !important;
+      }
+
+      /* Custom dropdown arrow */
+      .goog-te-menu-value:after {
+        content: '▼' !important;
+        font-size: 0.7rem !important;
+        color: var(--accent-primary) !important;
+        border: none !important;
+      }
+
+      /* Hide the vertical separator */
+      .goog-te-gadget-simple span[style*="vertical-align: middle"] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

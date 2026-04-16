@@ -1,0 +1,224 @@
+import React, { useState } from 'react';
+import { Beaker, Droplets, MapPin, Search, Activity, Navigation, Loader2 } from 'lucide-react';
+import { motion } from 'framer-motion';
+
+const SoilInputForm = ({ onSubmit, isAnalyzing }) => {
+  const [formData, setFormData] = useState({
+    pH: '',
+    nitrogen: '',
+    phosphorus: '',
+    potassium: '',
+    moisture: '',
+    district: '',
+    season: 'kharif',
+    preferredCrop: ''
+  });
+  const [isLocating, setIsLocating] = useState(false);
+
+  const handleDetectLocation = () => {
+    if (!navigator.geolocation) {
+       alert("Geolocation is not supported by your browser");
+       return;
+    }
+    
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          // Use BigDataCloud free reverse geocoding API (no API key required for client-side)
+          const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
+          const data = await response.json();
+          
+          const city = data.city || data.locality || '';
+          const state = data.principalSubdivision || '';
+          const locationString = [state, city].filter(Boolean).join(', ');
+          
+          setFormData(prev => ({
+            ...prev,
+            district: locationString || 'Location not found'
+          }));
+        } catch (error) {
+          console.error("Error fetching location details:", error);
+          alert("Failed to get location details.");
+        } finally {
+          setIsLocating(false);
+        }
+      },
+      (error) => {
+        console.error("Error getting location:", error);
+        alert("Failed to get your location. Please ensure location access is allowed in your browser.");
+        setIsLocating(false);
+      }
+    );
+  };
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  return (
+    <div className="glass-panel" style={{ padding: '40px' }}>
+      <div style={{ marginBottom: '30px', borderBottom: '1px solid var(--glass-border)', paddingBottom: '20px' }}>
+        <h2 style={{ color: 'var(--text-primary)', marginBottom: '10px' }}>Soil Health Data Entry</h2>
+        <p style={{ color: 'var(--text-secondary)' }}>Provide recent soil test readings and context for accurate ML-driven recommendations.</p>
+      </div>
+
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+        
+        {/* Basic Soil Metrics */}
+        <div>
+          <h3 style={{ color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', fontSize: '1.2rem' }}>
+            <Beaker size={20} color="var(--accent-primary)" /> Primary Soil Metrics
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">pH Level</label>
+              <input required type="number" step="0.1" name="pH" value={formData.pH} onChange={handleChange} className="form-control" placeholder="e.g. 6.5" />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Droplets size={16}/> Moisture (%)</label>
+              <input required type="number" name="moisture" value={formData.moisture} onChange={handleChange} className="form-control" placeholder="e.g. 15" />
+            </div>
+          </div>
+        </div>
+
+        {/* NPK Grid */}
+        <div style={{ background: 'var(--glass-highlight)', padding: '24px', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
+          <h3 style={{ color: 'var(--text-primary)', marginBottom: '16px', fontSize: '1.1rem' }}>
+            Macronutrients (kg/ha)
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Nitrogen (N)</label>
+              <input required type="number" name="nitrogen" value={formData.nitrogen} onChange={handleChange} className="form-control" placeholder="e.g. 40" />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Phosphorus (P)</label>
+              <input required type="number" name="phosphorus" value={formData.phosphorus} onChange={handleChange} className="form-control" placeholder="e.g. 20" />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Potassium (K)</label>
+              <input required type="number" name="potassium" value={formData.potassium} onChange={handleChange} className="form-control" placeholder="e.g. 30" />
+            </div>
+          </div>
+        </div>
+
+        {/* Contextual Data */}
+        <div>
+          <h3 style={{ color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', fontSize: '1.2rem' }}>
+            <MapPin size={20} color="var(--accent-blue)" /> Environmental & Crop Context
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">District / Location</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input required type="text" name="district" value={formData.district} onChange={handleChange} className="form-control" placeholder="e.g. Tamil Nadu, Erode" style={{ flex: 1 }} />
+                <button 
+                  type="button" 
+                  onClick={handleDetectLocation} 
+                  disabled={isLocating}
+                  style={{ 
+                    padding: '0 16px', 
+                    background: 'rgba(56, 189, 248, 0.1)', 
+                    border: '1px solid var(--accent-blue)', 
+                    color: 'var(--accent-blue)', 
+                    borderRadius: '8px',
+                    cursor: isLocating ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.3s ease'
+                  }}
+                  title="Auto-detect location"
+                >
+                  {isLocating ? (
+                    <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
+                       <Loader2 size={20} />
+                    </motion.div>
+                  ) : (
+                    <Navigation size={20} />
+                  )}
+                </button>
+              </div>
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Cultivation Season</label>
+              <select name="season" value={formData.season} onChange={handleChange} className="form-control" style={{ appearance: 'none', cursor: 'pointer' }}>
+                <option value="kharif">Kharif (Monsoon)</option>
+                <option value="rabi">Rabi (Winter)</option>
+                <option value="zaid">Zaid (Summer)</option>
+              </select>
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Preferred Crop Focus</label>
+              <select name="preferredCrop" value={formData.preferredCrop} onChange={handleChange} className="form-control" style={{ appearance: 'none', cursor: 'pointer' }}>
+                <option value="">Let AI Decide (Auto)</option>
+                <optgroup label="Cereals & Millets">
+                  <option value="Rice">Rice</option>
+                  <option value="Wheat">Wheat</option>
+                  <option value="Finger Millet (Ragi)">Finger Millet (Ragi)</option>
+                  <option value="Pearl Millet (Bajra)">Pearl Millet (Bajra)</option>
+                  <option value="Sorghum (Jowar)">Sorghum (Jowar)</option>
+                  <option value="Maize">Maize</option>
+                </optgroup>
+                <optgroup label="Cash Crops & Oilseeds">
+                  <option value="Cotton">Cotton</option>
+                  <option value="Sugarcane">Sugarcane</option>
+                  <option value="Groundnut">Groundnut</option>
+                  <option value="Soybean">Soybean</option>
+                  <option value="Mustard">Mustard</option>
+                </optgroup>
+                <optgroup label="Vegetables">
+                  <option value="Tomato">Tomato</option>
+                  <option value="Potato">Potato</option>
+                  <option value="Onion">Onion</option>
+                  <option value="Chili">Chili</option>
+                </optgroup>
+                <optgroup label="Fruits">
+                  <option value="Mango">Mango</option>
+                  <option value="Banana">Banana</option>
+                  <option value="Papaya">Papaya</option>
+                  <option value="Guava">Guava</option>
+                </optgroup>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Submit */}
+        <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center' }}>
+          <button 
+            type="submit" 
+            className={`btn-primary ${isAnalyzing ? 'animate-glow' : ''}`} 
+            disabled={isAnalyzing}
+            style={{ padding: '16px 40px', fontSize: '1.2rem', minWidth: '300px' }}
+          >
+            {isAnalyzing ? (
+               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                 <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
+                   <Search size={22} />
+                 </motion.div>
+                 Running ML Models...
+               </div>
+            ) : (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                 <Activity size={22} /> Process Soil Data
+              </span>
+            )}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+export default SoilInputForm;
