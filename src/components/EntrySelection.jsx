@@ -1,70 +1,100 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Edit3, FileUp, ArrowLeft } from 'lucide-react';
+import { Edit3, FileUp, ArrowLeft, Loader2 } from 'lucide-react';
+import Tesseract from 'tesseract.js';
 
 const EntrySelection = ({ onSelectManual, onFileLoaded, onBack }) => {
   const fileInputRef = useRef(null);
+  const [isScanning, setIsScanning] = useState(false);
+
+  const processAnalyzedData = (content, isJson) => {
+    try {
+      let parsedData = {};
+
+      if (isJson) {
+        const rawJson = JSON.parse(content);
+        Object.keys(rawJson).forEach(k => {
+          const key = k.toLowerCase();
+          const val = rawJson[k];
+          if (key.includes('ph')) parsedData.pH = val;
+          if (key.includes('nitrogen') || key === 'n') parsedData.nitrogen = val;
+          if (key.includes('phosphorus') || key === 'p') parsedData.phosphorus = val;
+          if (key.includes('potassium') || key === 'k') parsedData.potassium = val;
+          if (key.includes('moisture')) parsedData.moisture = val;
+        });
+      } else {
+        const lines = content.split('\n');
+        lines.forEach(line => {
+          const cleanLine = line.toLowerCase();
+          const numMatch = cleanLine.match(/([\d.]+)\s*(ppm|kg\/ha|kg\/acre|g\/kg|gm\/kg|mg\/kg|gm|mg|%)?/);
+          
+          if (numMatch) {
+            let val = parseFloat(numMatch[1]);
+            const unit = numMatch[2] || '';
+            
+            const isPh = cleanLine.includes('ph');
+            const isN = cleanLine.includes('nitro') || /\bn\b/.test(cleanLine);
+            const isP = cleanLine.includes('phospho') || /\bp\b/.test(cleanLine);
+            const isK = cleanLine.includes('potass') || /\bk\b/.test(cleanLine);
+            const isMoist = cleanLine.includes('moist');
+
+            if ((isN || isP || isK) && unit !== '%') {
+               // Normalizing all standard units back to standard ppm whole numbers as requested
+               if (unit === 'kg/ha') val = val / 2;
+               else if (unit === 'kg/acre') val = (val * 1.12) / 2;
+               
+               // Cap the value at exactly 100 percentage points as requested
+               val = Math.min(100, Math.round(val));
+            }
+
+            if (isPh && !parsedData.pH) parsedData.pH = val;
+            else if (isN && !parsedData.nitrogen) parsedData.nitrogen = val;
+            else if (isP && !parsedData.phosphorus) parsedData.phosphorus = val;
+            else if (isK && !parsedData.potassium) parsedData.potassium = val;
+            else if (isMoist && !parsedData.moisture) parsedData.moisture = val;
+          }
+        });
+      }
+
+      const cleanData = {
+        pH: parsedData.pH !== undefined ? parseFloat(parsedData.pH) : '',
+        nitrogen: parsedData.nitrogen !== undefined ? parseFloat(parsedData.nitrogen) : '',
+        phosphorus: parsedData.phosphorus !== undefined ? parseFloat(parsedData.phosphorus) : '',
+        potassium: parsedData.potassium !== undefined ? parseFloat(parsedData.potassium) : '',
+        moisture: parsedData.moisture !== undefined ? Math.round(parseFloat(parsedData.moisture)) : ''
+      };
+
+      if (Object.values(cleanData).every(v => v === '')) throw new Error("No valid data found in file");
+      
+      onFileLoaded(cleanData);
+    } catch (err) {
+      alert(err.message || "Failed to parse file. Ensure it contains labels like 'pH:', 'N:', 'P:', 'K:' followed by numbers.");
+    }
+  };
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const content = event.target.result;
-        let parsedData = {};
-
-        if (file.name.endsWith('.json')) {
-          const rawJson = JSON.parse(content);
-          // Flatten or look for nested keys
-          Object.keys(rawJson).forEach(k => {
-            const key = k.toLowerCase();
-            const val = rawJson[k];
-            if (key.includes('ph')) parsedData.pH = val;
-            if (key.includes('nitrogen') || key === 'n') parsedData.nitrogen = val;
-            if (key.includes('phosphorus') || key === 'p') parsedData.phosphorus = val;
-            if (key.includes('potassium') || key === 'k') parsedData.potassium = val;
-            if (key.includes('moisture')) parsedData.moisture = val;
-          });
-        } else {
-          // Deep Text Scanner
-          const lines = content.split('\n');
-          lines.forEach(line => {
-            const cleanLine = line.toLowerCase();
-            // Look for a number in the line
-            const numMatch = cleanLine.match(/([\d.]+)/);
-            if (numMatch) {
-              const val = numMatch[1];
-              // Identify field via fuzzy keywords
-              if (cleanLine.includes('ph')) parsedData.pH = val;
-              else if (cleanLine.includes('nitro') || /\bn\b/.test(cleanLine)) parsedData.nitrogen = val;
-              else if (cleanLine.includes('phospho') || /\bp\b/.test(cleanLine)) parsedData.phosphorus = val;
-              else if (cleanLine.includes('potass') || /\bk\b/.test(cleanLine)) parsedData.potassium = val;
-              else if (cleanLine.includes('moist')) parsedData.moisture = val;
-            }
-          });
-        }
-
-        // Final clean-up and validation
-        const cleanData = {
-          pH: parsedData.pH ? parseFloat(parsedData.pH) : '',
-          nitrogen: parsedData.nitrogen ? Math.round(parseFloat(parsedData.nitrogen)) : '',
-          phosphorus: parsedData.phosphorus ? Math.round(parseFloat(parsedData.phosphorus)) : '',
-          potassium: parsedData.potassium ? Math.round(parseFloat(parsedData.potassium)) : '',
-          moisture: parsedData.moisture ? Math.round(parseFloat(parsedData.moisture)) : ''
-        };
-
-        if (Object.values(cleanData).every(v => v === '')) {
-          throw new Error("No valid data found in file");
-        }
-
-        onFileLoaded(cleanData);
-      } catch (err) {
-        alert(err.message || "Failed to parse file. Ensure it contains labels like 'pH:', 'N:', 'P:', 'K:' followed by numbers.");
-      }
-    };
-    reader.readAsText(file);
+    if (file.type.startsWith('image/')) {
+      setIsScanning(true);
+      Tesseract.recognize(file, 'eng', { logger: m => console.log(m) })
+        .then(({ data: { text } }) => {
+          setIsScanning(false);
+          processAnalyzedData(text, false);
+        })
+        .catch(err => {
+          setIsScanning(false);
+          console.error("OCR Error:", err);
+          alert("Image scanning failed. Please try a clearer image or a text document.");
+        });
+    } else {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        processAnalyzedData(event.target.result, file.name.endsWith('.json'));
+      };
+      reader.readAsText(file);
+    }
   };
 
   return (
@@ -99,46 +129,29 @@ const EntrySelection = ({ onSelectManual, onFileLoaded, onBack }) => {
         {/* File Upload Option */}
         <motion.div 
           whileHover={{ scale: 1.02, translateY: -5 }}
-          onClick={() => fileInputRef.current.click()}
+          onClick={() => isScanning ? null : fileInputRef.current.click()}
           className="glass-panel" 
-          style={{ padding: '40px', cursor: 'pointer', textAlign: 'center', border: '1px solid var(--accent-primary)', boxShadow: '0 0 30px var(--accent-glow)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}
+          style={{ padding: '40px', cursor: isScanning ? 'wait' : 'pointer', textAlign: 'center', border: '1px solid var(--accent-primary)', boxShadow: '0 0 30px var(--accent-glow)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', opacity: isScanning ? 0.7 : 1 }}
         >
           <input 
             type="file" 
             ref={fileInputRef} 
             style={{ display: 'none' }} 
-            onChange={(e) => {
-              const file = e.target.files[0];
-              if (!file) return;
-
-              if (file.type.startsWith('image/')) {
-                // Simulate AI Visual Analysis for the provided media
-                // In a production app, this would use Tesseract.js or a Cloud Vision API
-                alert("AI Vision: Scanning image for soil metrics...");
-                setTimeout(() => {
-                  const mediaData = {
-                    pH: 8.1,
-                    nitrogen: 8,
-                    phosphorus: 9,
-                    potassium: 68,
-                    moisture: 17 // Using EC/Texture inference
-                  };
-                  onFileLoaded(mediaData);
-                }, 1500);
-              } else {
-                handleFileUpload(e);
-              }
-            }}
+            onChange={handleFileUpload}
             accept=".txt,.json,image/*"
           />
           <div style={{ background: 'var(--accent-glow)', padding: '20px', borderRadius: '50%' }}>
-            <FileUp size={40} color="var(--accent-primary)" />
+            {isScanning ? <Loader2 size={40} className="animate-spin" color="var(--accent-primary)" /> : <FileUp size={40} color="var(--accent-primary)" />}
           </div>
           <div>
-            <h3 style={{ color: 'var(--text-primary)', marginBottom: '10px' }}>AI Photo & Document Scanner</h3>
+            <h3 style={{ color: 'var(--text-primary)', marginBottom: '10px' }}>
+               {isScanning ? 'Extracting Data via AI...' : 'AI Photo & Document Scanner'}
+            </h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Upload a report photo (.jpg/png) or a .txt/json file. We'll automatically extract all soil metrics for you.</p>
           </div>
-          <button className="btn-primary" style={{ pointerEvents: 'none' }}>Browse Files</button>
+          <button className="btn-primary" style={{ pointerEvents: 'none' }}>
+             {isScanning ? 'Scanning...' : 'Browse Files'}
+          </button>
         </motion.div>
       </div>
     </div>

@@ -9,10 +9,13 @@ const SoilInputForm = ({ onSubmit, isAnalyzing, detectedLocation, userCoords, in
     nitrogen: initialData?.nitrogen || '',
     phosphorus: initialData?.phosphorus || '',
     potassium: initialData?.potassium || '',
-    moisture: initialData?.moisture || '',
     district: detectedLocation || '',
     season: 'kharif',
-    preferredCrop: ''
+    preferredCrop: '',
+    soilDepth: 20,
+    bulkDensity: 1.4,
+    fieldArea: 1,
+    areaUnit: 'hectare'
   });
   const [isLocating, setIsLocating] = useState(false);
 
@@ -82,6 +85,42 @@ const SoilInputForm = ({ onSubmit, isAnalyzing, detectedLocation, userCoords, in
     });
   };
 
+  const calculateNPKPercentage = () => {
+    // Topsoil depth in meters
+    const depthMeters = parseFloat(formData.soilDepth) / 100;
+    // Bulk density to kg/m3 (g/cm3 * 1000)
+    const densityKgM3 = parseFloat(formData.bulkDensity) * 1000;
+    
+    // Normalize area into hectares
+    let areaInHectares = parseFloat(formData.fieldArea) || 1;
+    if (formData.areaUnit === 'acre') areaInHectares = areaInHectares * 0.404686;
+    else if (formData.areaUnit === 'sqft') areaInHectares = areaInHectares * 0.00000929;
+
+    // Calculate dynamic soil mass accounting for user's literal field size
+    const volumeTotalM3 = (10000 * areaInHectares) * depthMeters;
+    const soilMassTotalKg = volumeTotalM3 * densityKgM3;
+
+    const convertToPercentage = (val) => {
+      if (!val) return '';
+      const rawKgHa = parseFloat(val);
+      const totalNutrientMass = rawKgHa * areaInHectares;
+      
+      // percentage mathematically preserves concentration ratio while mapping true scale bounds
+      const percentage = (totalNutrientMass / soilMassTotalKg) * 100;
+      return percentage.toFixed(5);
+    };
+
+    setFormData(prev => ({
+      ...prev,
+      nitrogen: convertToPercentage(prev.nitrogen),
+      phosphorus: convertToPercentage(prev.phosphorus),
+      potassium: convertToPercentage(prev.potassium)
+    }));
+
+    // Alert user just to confirm computation worked visually
+    alert(`Mass Computation Completed:\nCalculated Total Soil Mass for ${formData.fieldArea} ${formData.areaUnit}(s) at ${formData.soilDepth}cm depth equals exactly: ${Math.round(soilMassTotalKg).toLocaleString()} kg.`);
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     onSubmit(formData);
@@ -117,23 +156,56 @@ const SoilInputForm = ({ onSubmit, isAnalyzing, detectedLocation, userCoords, in
           </div>
         </div>
 
+        {/* Soil Mass Parameters */}
+        <div style={{ background: 'var(--glass-highlight)', padding: '20px', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
+          <h3 style={{ color: 'var(--text-primary)', marginBottom: '16px', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Activity size={18} color="var(--accent-primary)"/> Calculate Science-Grade Percentage
+          </h3>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '16px' }}>Convert kg/ha extractions into precise soil mass fractions based on physical field density.</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '16px', alignItems: 'end' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Soil Depth (cm)</label>
+              <input type="number" step="1" name="soilDepth" value={formData.soilDepth} onChange={handleChange} className="form-control" />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Bulk Density</label>
+              <input type="number" step="0.1" name="bulkDensity" value={formData.bulkDensity} onChange={handleChange} className="form-control" />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Field Area</label>
+              <input type="number" step="0.1" name="fieldArea" value={formData.fieldArea} onChange={handleChange} className="form-control" />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Area Unit</label>
+              <select name="areaUnit" value={formData.areaUnit} onChange={handleChange} className="form-control" style={{ appearance: 'none', padding: '10px 8px' }}>
+                <option value="hectare">Hectares (ha)</option>
+                <option value="acre">Acres</option>
+                <option value="sqft">Sq. Ft</option>
+              </select>
+            </div>
+            <button type="button" onClick={calculateNPKPercentage} className="btn-outline" style={{ whiteSpace: 'nowrap', padding: '10px 16px', fontSize: '0.9rem', height: '42px' }}>
+              Calculate %
+            </button>
+          </div>
+        </div>
+
         {/* NPK Grid */}
         <div style={{ background: 'var(--glass-highlight)', padding: '24px', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
           <h3 style={{ color: 'var(--text-primary)', marginBottom: '16px', fontSize: '1.1rem' }}>
-            Macronutrients (ppm)
+            Macronutrients (%)
           </h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Nitrogen (N)</label>
-              <input required type="number" name="nitrogen" value={formData.nitrogen} onChange={handleChange} className="form-control" placeholder="e.g. 40" />
+              <input required type="number" step="0.0001" name="nitrogen" value={formData.nitrogen} onChange={handleChange} className="form-control" placeholder="e.g. 0.014" />
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Phosphorus (P)</label>
-              <input required type="number" name="phosphorus" value={formData.phosphorus} onChange={handleChange} className="form-control" placeholder="e.g. 20" />
+              <input required type="number" step="0.0001" name="phosphorus" value={formData.phosphorus} onChange={handleChange} className="form-control" placeholder="e.g. 0.0011" />
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Potassium (K)</label>
-              <input required type="number" name="potassium" value={formData.potassium} onChange={handleChange} className="form-control" placeholder="e.g. 30" />
+              <input required type="number" step="0.0001" name="potassium" value={formData.potassium} onChange={handleChange} className="form-control" placeholder="e.g. 0.0075" />
             </div>
           </div>
         </div>

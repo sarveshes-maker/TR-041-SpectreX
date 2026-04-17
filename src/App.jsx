@@ -265,16 +265,21 @@ function App() {
               onChange={(e) => {
                 const lang = e.target.value;
                 let retries = 0;
+                
                 const triggerTranslation = () => {
                   const selectElement = document.querySelector('.goog-te-combo');
                   if (selectElement) {
                     selectElement.value = lang;
-                    selectElement.dispatchEvent(new Event('change'));
+                    // Google Translate requires a native-style bubbling event to catch the change
+                    const event = document.createEvent('HTMLEvents');
+                    event.initEvent('change', true, true);
+                    selectElement.dispatchEvent(event);
                     return true;
                   }
+                  
                   retries++;
-                  if (retries < 10) {
-                    setTimeout(triggerTranslation, 500);
+                  if (retries < 15) {
+                    setTimeout(triggerTranslation, 300);
                   }
                   return false;
                 };

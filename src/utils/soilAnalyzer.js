@@ -28,9 +28,13 @@ export const CROP_DATABASE = [
 ];
 
 const getRating = (val, nut) => {
-  if (nut === 'N') return val >= 100 ? 'High' : val >= 50 ? 'Medium' : 'Low';
-  if (nut === 'P') return val >= 40 ? 'High' : val >= 20 ? 'Medium' : 'Low';
-  if (nut === 'K') return val >= 40 ? 'High' : val >= 20 ? 'Medium' : 'Low';
+  // Scientific thresholds mapping percentage points corresponding to authentic kg/ha parameters.
+  // Nitrogen scale: <0.01% is Low (<280 kg/ha), 0.01-0.02% is Med, >0.02% is High
+  // Phosphorus scale: <0.00035% is Low (<10 kg/ha), >0.0009% is High
+  // Potassium scale: <0.0039% is Low (<110 kg/ha), >0.01% is High
+  if (nut === 'N') return val >= 0.0200 ? 'High' : val >= 0.0100 ? 'Medium' : 'Low';
+  if (nut === 'P') return val >= 0.0009 ? 'High' : val >= 0.00035 ? 'Medium' : 'Low';
+  if (nut === 'K') return val >= 0.0100 ? 'High' : val >= 0.0039 ? 'Medium' : 'Low';
 };
 
 const getNutrientPenalty = (needed, actual) => {
@@ -43,11 +47,20 @@ const getNutrientPenalty = (needed, actual) => {
 
 export const evaluateSoil = (formData, weatherData = null) => {
   const pH = parseFloat(formData.pH);
-  const N = parseInt(formData.nitrogen);
-  const P = parseInt(formData.phosphorus);
-  const K = parseInt(formData.potassium);
+  const N = parseFloat(formData.nitrogen);
+  const P = parseFloat(formData.phosphorus);
+  const K = parseFloat(formData.potassium);
   const moisture = parseInt(formData.moisture);
   const preferred = formData.preferredCrop;
+
+  const calculateAreaInHectares = (area, unit) => {
+    let a = parseFloat(area) || 1;
+    if (unit === 'acre') return a * 0.404686;
+    if (unit === 'sqft') return a * 0.00000929;
+    return a;
+  };
+  const totalHectares = calculateAreaInHectares(formData.fieldArea, formData.areaUnit);
+  const fieldLabel = `${formData.fieldArea} ${formData.areaUnit}(s)`;
 
   const actualN = getRating(N, 'N');
   const actualP = getRating(P, 'P');
@@ -84,21 +97,30 @@ export const evaluateSoil = (formData, weatherData = null) => {
       requiredFixes.push(`Improve soil drainage mechanisms to prevent destructive root rot.`);
     }
 
-    // Evaluate NPK
+    // Evaluate NPK & Scale Total Fertilizers Based on Field Area
     const penN = getNutrientPenalty(crop.nNeeded, actualN);
     if (penN > 0) {
         score -= penN;
-        requiredFixes.push(`Nitrogen Deficient: Apply Urea or DAP top dressing. Crop requires ${crop.nNeeded} N.`);
+        // penalty is 15 (1 level) or 30 (2 levels). Urea per Ha: ~60kg for 1 level, ~120kg for 2 levels
+        const ureaPerHa = penN * 4; 
+        const totalUrea = Math.ceil(ureaPerHa * totalHectares);
+        requiredFixes.push(`Nitrogen Deficient: Procure and apply exactly ${totalUrea} kg of Urea to treat your entire ${fieldLabel} field.`);
     }
     const penP = getNutrientPenalty(crop.pNeeded, actualP);
     if (penP > 0) {
         score -= penP;
-        requiredFixes.push(`Phosphorus Deficient: Add basal dose of SSP or DAP. Crop requires ${crop.pNeeded} P.`);
+        // SSP Single Super Phosphate: ~100kg for 1 level, ~200kg for 2 levels
+        const sspPerHa = penP * 6.5; 
+        const totalSsp = Math.ceil(sspPerHa * totalHectares);
+        requiredFixes.push(`Phosphorus Deficient: Add a basal dose of ${totalSsp} kg SSP (Single Super Phosphate) for your ${fieldLabel}.`);
     }
     const penK = getNutrientPenalty(crop.kNeeded, actualK);
     if (penK > 0) {
         score -= penK;
-        requiredFixes.push(`Potassium Deficient: Apply MOP (Muriate of Potash). Crop requires ${crop.kNeeded} K.`);
+        // MOP Muriate of Potash: ~40kg for 1 level, ~80kg for 2 levels
+        const mopPerHa = penK * 2.6;
+        const totalMop = Math.ceil(mopPerHa * totalHectares);
+        requiredFixes.push(`Potassium Deficient: Top-dress with ${totalMop} kg of MOP (Muriate of Potash) covering all ${fieldLabel} of land.`);
     }
 
     return {
