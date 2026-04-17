@@ -3,7 +3,7 @@ import { Beaker, Droplets, MapPin, Search, Activity, Navigation, Loader2, ArrowL
 import { motion } from 'framer-motion';
 import LabMap from './LabMap';
 
-const SoilInputForm = ({ onSubmit, isAnalyzing, detectedLocation, userCoords, initialData, onBack }) => {
+const SoilInputForm = ({ onSubmit, isAnalyzing, detectedLocation, userCoords, initialData, onBack, onLocationChange }) => {
   const [formData, setFormData] = useState({
     pH: initialData?.pH || '',
     nitrogen: initialData?.nitrogen || '',
@@ -212,7 +212,13 @@ const SoilInputForm = ({ onSubmit, isAnalyzing, detectedLocation, userCoords, in
             <h3 style={{ color: 'var(--text-primary)', marginBottom: '16px', fontSize: '1rem', opacity: 0.8 }}>Live Agri-Map Tracking</h3>
             <div style={{ flex: 1, minHeight: '180px', borderRadius: '16px', border: '1px solid var(--glass-border)', overflow: 'hidden' }}>
               {userCoords ? (
-                <LabMap userCoords={userCoords} labCoords={userCoords} labName="FARM LOCATION" />
+                <LabMap 
+                  userCoords={userCoords} 
+                  labCoords={userCoords} 
+                  labName="FARM LOCATION" 
+                  isInteractive={true}
+                  onLocationChange={onLocationChange}
+                />
               ) : (
                 <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--glass-highlight)', color: 'var(--text-secondary)', fontSize: '0.9rem', textAlign: 'center', padding: '20px' }}>
                   Enable GPS to see your farm position on the map

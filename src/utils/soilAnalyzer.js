@@ -168,6 +168,30 @@ export const evaluateSoil = (formData, weatherData = null) => {
       waterAdvice = `Balanced hydrometrics. Continue regular moisture monitoring. Ambient temp is ${temp}°C.`;
   }
 
+  // Sowing Window Logic
+  let sowingAdvice = `Ideal conditions detected. Proceed with planting ${primaryResult.crop} in the upcoming week for maximum germination speed.`;
+  if (temp > 38 || temp < 15) {
+      sowingAdvice = `Delay Sowing Alert: Extreme temperature (${temp}°C) poses a severe risk to germination. Best to postpone planting ${primaryResult.crop} until temperatures stabilize between 20-30°C.`;
+  } else if (hum > 85 && moisture > 70) {
+      sowingAdvice = `Sowing Warning: High atmospheric humidity and excessive soil moisture may cause seed rot. Wait for clear skies and optimal field capacity before sowing.`;
+  }
+
+  // Rain Prediction & Irrigation Frequency
+  let irrigationFreq = `Irrigate lightly every 3-4 days based on evapotranspiration rates.`;
+  let rainLogic = `Weather Cycle: ${hum > 75 ? 'Humid front detected; potential precipitation imminent.' : "Clear and dry cycle anticipated. Rely fully on managed irrigation."}`;
+  
+  if (temp > 32 && moisture < cropData.minMoisture) {
+      irrigationFreq = `Intense Daily Irrigation required. Due to high heat (${temp}°C) and dry soil, maintain a rigid watering cycle specifically at dawn/dusk to combat transpiration.`;
+  } else if (hum > 80 || moisture >= cropData.maxMoisture) {
+      irrigationFreq = `Pause Irrigation. Current high moisture levels (${moisture}%) and heavy humidity (${hum}%) suggest high rain probability. Rely on atmospheric natural water for the next 48-72 hrs to prevent waterlogging.`;
+  }
+
+  const agriAlerts = [
+      { type: 'sowing', title: 'Sowing Window Forecast', text: sowingAdvice, time: 'Pre-Planting' },
+      { type: 'irrigation', title: 'Climate-Sync Irrigation', text: `${rainLogic} ${irrigationFreq} Actionable advice: ${waterAdvice}`, time: 'Daily Monitoring' },
+      ...fertilizerActions.map(f => ({ type: 'fertilizer', title: `Nutrient Protocol (Day ${f.day})`, text: f.action, time: f.day === 0 ? 'Urgent / Today' : `T+${f.day} Days` }))
+  ];
+
   return {
     input: formData,
     recommendations: finalRecommendations, 
@@ -178,6 +202,7 @@ export const evaluateSoil = (formData, weatherData = null) => {
         { icon: 'droplets', title: "Watering Pattern", detail: waterAdvice },
         { icon: 'practice', title: "Growth Guarantee", detail: `Predicted Yield Capability reflects a ${primaryResult.score}% health index. ${primaryResult.score < 60 ? 'Intense care required.' : 'Solid routine maintenance is sufficient.'}` }
     ],
+    agriAlerts: agriAlerts,
     advisory: {
       en: advisoryText
     }

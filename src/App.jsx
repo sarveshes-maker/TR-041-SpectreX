@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Leaf, Droplets, MapPin, Activity, Sun, Moon, Languages } from 'lucide-react';
+import { Leaf, Droplets, MapPin, Activity, Sun, Moon, Languages, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SoilInputForm from './components/SoilInputForm';
 import ResultsDisplay from './components/ResultsDisplay';
 import StartPage from './components/StartPage';
 import EntrySelection from './components/EntrySelection';
+import NotificationCentre from './components/NotificationCentre';
 import { evaluateSoil } from './utils/soilAnalyzer';
 import { findNearestLab } from './utils/labLocator';
 import { fetchWeather } from './utils/weatherApi';
@@ -14,6 +15,8 @@ function App() {
   const [hasStarted, setHasStarted] = useState(false);
   const [entryMethod, setEntryMethod] = useState(null); // 'manual' | 'file'
   const [autoPopulatedData, setAutoPopulatedData] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [showLabModal, setShowLabModal] = useState(false);
   const [foundLab, setFoundLab] = useState(null);
@@ -120,6 +123,13 @@ function App() {
   const [analysisData, setAnalysisData] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
+  const updateUserLocation = (lat, lng) => {
+    setUserCoords({ lat, lng });
+    fetchLocationDetails(lat, lng);
+    const nearest = findNearestLab(lat, lng);
+    setFoundLab(nearest);
+  };
+
   // Mock Analysis Output
   const handleAnalyze = (formData) => {
     setIsAnalyzing(true);
@@ -127,6 +137,18 @@ function App() {
     setTimeout(() => {
       const algorithmicData = evaluateSoil(formData, weatherData);
       setAnalysisData(algorithmicData);
+
+      // Auto-generate notifications based on agronomist plan and climate logic
+      const newNotifs = algorithmicData.agriAlerts.map((alert, idx) => ({
+        id: Date.now() + idx,
+        type: alert.type, // 'sowing', 'irrigation', or 'fertilizer'
+        title: alert.title,
+        message: alert.text,
+        time: alert.time
+      }));
+      
+      setNotifications(newNotifs);
+      setShowNotifications(true); // Automatically show center upon analysis complete
       setIsAnalyzing(false);
     }, 1500);
   };
@@ -299,6 +321,30 @@ function App() {
             }}
           ></div>
           
+          {/* Notification Engine */}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowNotifications(!showNotifications)}
+              style={{ padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '50%', color: 'var(--accent-primary)', cursor: 'pointer', transition: 'all 0.3s', position: 'relative' }}
+              title="Alerts"
+            >
+              <Bell size={20} />
+              {notifications.length > 0 && (
+                <span style={{ position: 'absolute', top: '-4px', right: '-4px', background: 'var(--accent-orange)', color: 'white', fontSize: '0.65rem', fontWeight: 'bold', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: '2px solid var(--bg-primary)' }}>
+                  {notifications.length}
+                </span>
+              )}
+            </button>
+            <AnimatePresence>
+              {showNotifications && (
+                <NotificationCentre 
+                  notifications={notifications} 
+                  onClose={() => setShowNotifications(false)} 
+                />
+              )}
+            </AnimatePresence>
+          </div>
+          
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
             style={{ padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '50%', color: 'var(--accent-primary)', cursor: 'pointer', transition: 'all 0.3s' }}
@@ -357,6 +403,7 @@ function App() {
                   setEntryMethod(null);
                   setAutoPopulatedData(null);
                 }}
+                onLocationChange={updateUserLocation}
               />
             </motion.div>
           ) : (
